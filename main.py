@@ -1,14 +1,14 @@
 import pygame
 import json
 import os
+from neural_network import Neural_Network
 
 from car import Car
+from sensor import Sensor
 
 
 pygame.init()
 
-
-# Settings
 
 WIDTH = 1000
 HEIGHT = 800
@@ -18,8 +18,6 @@ TRACK_NAME = "first"
 TRACK_FOLDER = "tracks"
 
 
-# Load
-
 def load_track(name):
 
     filename = os.path.join(
@@ -28,7 +26,6 @@ def load_track(name):
     )
 
     with open(filename, "r") as file:
-
         return json.load(file)
 
 
@@ -38,7 +35,27 @@ outer_points = track["outer"]
 inner_points = track["inner"]
 
 
-# Pygame
+track_distances = [0]
+
+for i in range(1, len(inner_points)):
+
+    point_a = pygame.math.Vector2(
+        inner_points[i - 1]
+    )
+
+    point_b = pygame.math.Vector2(
+        inner_points[i]
+    )
+
+    distance = point_a.distance_to(point_b)
+
+    track_distances.append(
+        track_distances[-1] + distance
+    )
+
+
+track_length = track_distances[-1]
+
 
 screen = pygame.display.set_mode(
     (WIDTH, HEIGHT)
@@ -51,10 +68,8 @@ pygame.display.set_caption(
 clock = pygame.time.Clock()
 
 
-# Car
-
 my_car = Car(
-    100, # will always keep this starting position
+    100,
     600,
     0,
     90,
@@ -62,7 +77,8 @@ my_car = Car(
 )
 
 
-# Image
+brain = Neural_Network([7, 8, 2])
+
 
 car_image = pygame.Surface(
     (30, 50),
@@ -74,51 +90,151 @@ car_image.fill(
 )
 
 
-# Loop
+sensors = {
+    "S0": Sensor(0, 150),
+    "S1": Sensor(30, 150),
+    "S2": Sensor(-30, 150),
+    "S3": Sensor(60, 150),
+    "S4": Sensor(-60, 150),
+    "S5": Sensor(110, 150),
+    "S6": Sensor(-110, 150)
+}
+
+
+furthest_point = 0
+
+previous_point = 0
+
+lap = 0
+
+distance_traveled = 0
+
 
 running = True
 
 
 while running:
 
-    # Events
-
     for event in pygame.event.get():
 
         if event.type == pygame.QUIT:
-
             running = False
 
 
-    # Input
+    for sensor in sensors.values():
 
-    keys = pygame.key.get_pressed()
+        sensor.update(
+            my_car.x_pos,
+            my_car.y_pos,
+            my_car.angle,
+            outer_points,
+            inner_points
+        )
 
-    forward = keys[pygame.K_w]
-    backward = keys[pygame.K_s]
 
-    left = keys[pygame.K_a]
-    right = keys[pygame.K_d]
+    sensor_values = [
+        sensors["S0"].value,
+        sensors["S1"].value,
+        sensors["S2"].value,
+        sensors["S3"].value,
+        sensors["S4"].value,
+        sensors["S5"].value,
+        sensors["S6"].value
+    ]
 
 
-    # Update
-
-    my_car.update(
-        forward,
-        backward,
-        left,
-        right
+    car_position = pygame.math.Vector2(
+        my_car.x_pos,
+        my_car.y_pos
     )
 
 
-    # Background
+    closest_index = 0
+
+    closest_distance = float("inf")
+
+
+    for i, point in enumerate(inner_points):
+
+        track_point = pygame.math.Vector2(
+            point
+        )
+
+        distance = car_position.distance_to(
+            track_point
+        )
+
+        if distance < closest_distance:
+
+            closest_distance = distance
+
+            closest_index = i
+
+
+    if previous_point > len(inner_points) * 0.8:
+
+        if closest_index < len(inner_points) * 0.2:
+
+            lap += 1
+
+            furthest_point = closest_index
+
+            print("Lap:", lap)
+
+
+    if closest_index > furthest_point:
+
+        furthest_point = closest_index
+
+
+    previous_point = closest_index
+
+
+    distance_traveled = (
+        lap * track_length
+        + track_distances[furthest_point]
+    )
+    print("distance traveled",distance_traveled)
+
+
+    crashed = False
+
+
+    for value in sensor_values:
+
+        if value < 0.1:
+
+            
+
+            my_car.stop()
+
+            my_car.kill()
+
+            crashed = True
+
+            break
+
+
+    if not crashed:
+
+        output = brain.forward(
+            sensor_values
+        )
+
+        throttle = output[0]
+
+        steer = output[1]
+
+        my_car.update(
+            throttle,
+            steer
+        )
+
 
     screen.fill(
         (30, 120, 50)
     )
 
-
-    # Track
 
     if len(outer_points) >= 2:
 
@@ -142,7 +258,14 @@ while running:
         )
 
 
-    # Draw
+    for sensor in sensors.values():
+
+        sensor.draw(
+            screen,
+            my_car.x_pos,
+            my_car.y_pos
+        )
+
 
     rotated_car = pygame.transform.rotate(
         car_image,
@@ -164,7 +287,36 @@ while running:
     )
 
 
-    # Display
+    font = pygame.font.Font(
+        None,
+        30
+    )
+
+
+    distance_text = font.render(
+        f"Distance: {distance_traveled:.1f}",
+        True,
+        (255, 255, 255)
+    )
+
+
+    lap_text = font.render(
+        f"Lap: {lap}",
+        True,
+        (255, 255, 255)
+    )
+
+
+    screen.blit(
+        distance_text,
+        (20, 20)
+    )
+
+    screen.blit(
+        lap_text,
+        (20, 50)
+    )
+
 
     pygame.display.flip()
 

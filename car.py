@@ -11,50 +11,36 @@ class Car:
 
         self.is_alive = is_alive
 
-       
-
         self.max_speed = 4
         self.acceleration = 0.10
         self.friction = 0.08
         self.brake_power = 0.20
 
-
-
         self.max_steering = 2.5
 
-    def update(self, forward, backward, left, right):
+    def update(self, throttle, steer):
 
         if not self.is_alive:
             return
 
-        if forward:
-            self.speed += self.acceleration
+        # -----------------
+        # THROTTLE
+        # -----------------
+
+        if throttle > 0:
+            self.speed += self.acceleration * throttle
 
             if self.speed > self.max_speed:
                 self.speed = self.max_speed
 
+        elif throttle < 0:
+            self.speed += self.acceleration * throttle
 
-
-        elif backward:
-
-            
-            if self.speed > 0:
-                self.speed -= self.brake_power
-
-                if self.speed < 0:
-                    self.speed = 0
-
-            
-            else:
-                self.speed -= self.acceleration
-
-                if self.speed < -self.max_speed / 2:
-                    self.speed = -self.max_speed / 2
-
-
+            if self.speed < -self.max_speed / 2:
+                self.speed = -self.max_speed / 2
 
         else:
-
+            # friction
             if self.speed > 0:
                 self.speed -= self.friction
 
@@ -67,19 +53,19 @@ class Car:
                 if self.speed > 0:
                     self.speed = 0
 
+        # -----------------
+        # STEERING
+        # -----------------
 
-     
         speed_ratio = abs(self.speed) / self.max_speed
 
-        steering = self.max_steering * speed_ratio
+        steering = self.max_steering * speed_ratio * steer
 
-        if left:
-            self.angle += steering
+        self.angle -= steering
 
-        if right:
-            self.angle -= steering
-
-     
+        # -----------------
+        # MOVEMENT
+        # -----------------
 
         angle_rad = math.radians(self.angle)
 
