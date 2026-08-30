@@ -8,9 +8,6 @@ from car import Car
 from sensor import Sensor
 
 
-pygame.init()
-
-
 # --------------------------------
 # Settings
 # --------------------------------
@@ -22,49 +19,106 @@ TRACK_NAME = "three"
 
 TRACK_FOLDER = "tracks"
 
-BRAIN_FILE = "best_brain.json"
+CHECKPOINT_FILE = (
+    "training_checkpoint.json"
+)
 
 
 # --------------------------------
-# Load Track
+# Load track
 # --------------------------------
 
 def load_track(name):
 
     filename = os.path.join(
+
         TRACK_FOLDER,
+
         name + ".json"
     )
+
 
     with open(
         filename,
         "r"
     ) as file:
 
-        return json.load(file)
+        return json.load(
+            file
+        )
 
 
-track = load_track(
-    TRACK_NAME
-)
+# --------------------------------
+# Load trained brain
+#
+# FIX: "architecture" lives at the top
+# level of the checkpoint (alongside
+# "generation" and "best_brain"), not
+# inside best_brain itself. We build the
+# Neural_Network using that architecture,
+# then load the saved weights/biases via
+# set_data().
+# --------------------------------
+
+def load_brain():
+
+    if not os.path.exists(
+        CHECKPOINT_FILE
+    ):
+
+        raise FileNotFoundError(
+
+            "training_checkpoint.json "
+            "does not exist. "
+            "Run train.py first."
+        )
 
 
-outer_points = track["outer"]
+    with open(
+        CHECKPOINT_FILE,
+        "r"
+    ) as file:
 
-inner_points = track["inner"]
+        data = json.load(
+            file
+        )
+
+
+    brain = Neural_Network(
+        data["architecture"]
+    )
+
+
+    brain.set_data(
+        data["best_brain"]
+    )
+
+
+    print(
+        "Loaded generation:",
+        data["generation"]
+    )
+
+
+    return brain
 
 
 # --------------------------------
 # Pygame
 # --------------------------------
 
+pygame.init()
+
+
 screen = pygame.display.set_mode(
+
     (WIDTH, HEIGHT)
 )
 
 
 pygame.display.set_caption(
-    "Trained Car"
+
+    "Trained Self Driving Car"
 )
 
 
@@ -78,7 +132,33 @@ font = pygame.font.Font(
 
 
 # --------------------------------
-# Car
+# Load track
+# --------------------------------
+
+track = load_track(
+    TRACK_NAME
+)
+
+
+outer_points = track[
+    "outer"
+]
+
+
+inner_points = track[
+    "inner"
+]
+
+
+# --------------------------------
+# Load brain
+# --------------------------------
+
+brain = load_brain()
+
+
+# --------------------------------
+# Create car
 # --------------------------------
 
 my_car = Car(
@@ -92,32 +172,11 @@ my_car = Car(
     90,
 
     True
-
 )
 
 
 # --------------------------------
-# Neural Network
-# --------------------------------
-
-brain = Neural_Network(
-    [7, 8, 2]
-)
-
-
-brain.load(
-    BRAIN_FILE
-)
-
-
-print(
-    "Loaded trained brain:",
-    BRAIN_FILE
-)
-
-
-# --------------------------------
-# Car Image
+# Car image
 # --------------------------------
 
 car_image = pygame.Surface(
@@ -125,14 +184,12 @@ car_image = pygame.Surface(
     (20, 35),
 
     pygame.SRCALPHA
-
 )
 
 
 car_image.fill(
 
     (200, 50, 50)
-
 )
 
 
@@ -142,78 +199,45 @@ car_image.fill(
 
 sensors = {
 
-    "S0": Sensor(0, 150),
+    "S0": Sensor(
+        0,
+        150
+    ),
 
-    "S1": Sensor(30, 150),
+    "S1": Sensor(
+        30,
+        150
+    ),
 
-    "S2": Sensor(-30, 150),
+    "S2": Sensor(
+        -30,
+        150
+    ),
 
-    "S3": Sensor(60, 150),
+    "S3": Sensor(
+        60,
+        150
+    ),
 
-    "S4": Sensor(-60, 150),
+    "S4": Sensor(
+        -60,
+        150
+    ),
 
-    "S5": Sensor(110, 150),
+    "S5": Sensor(
+        110,
+        150
+    ),
 
-    "S6": Sensor(-110, 150)
-
+    "S6": Sensor(
+        -110,
+        150
+    )
 }
 
 
 # --------------------------------
-# Track Distance
-# --------------------------------
-
-track_distances = [0]
-
-
-for i in range(
-    1,
-    len(inner_points)
-):
-
-    point_a = pygame.math.Vector2(
-        inner_points[i - 1]
-    )
-
-    point_b = pygame.math.Vector2(
-        inner_points[i]
-    )
-
-    distance = point_a.distance_to(
-        point_b
-    )
-
-    track_distances.append(
-
-        track_distances[-1]
-        + distance
-
-    )
-
-
-track_length = track_distances[-1]
-
-
-# --------------------------------
-# Progress
-# --------------------------------
-
-previous_point = 0
-
-current_point = 0
-
-lap = 0
-
-distance_traveled = 0
-
-
-SEARCH_BACK = 20
-
-SEARCH_FORWARD = 20
-
-
-# --------------------------------
-# Main Loop
+# Running
 # --------------------------------
 
 running = True
@@ -249,9 +273,12 @@ while running:
             outer_points,
 
             inner_points
-
         )
 
+
+    # --------------------------------
+    # Sensor values
+    # --------------------------------
 
     sensor_values = [
 
@@ -268,142 +295,7 @@ while running:
         sensors["S5"].value,
 
         sensors["S6"].value
-
     ]
-
-
-    # --------------------------------
-    # Track Point
-    # --------------------------------
-
-    car_position = pygame.math.Vector2(
-
-        my_car.x_pos,
-
-        my_car.y_pos
-
-    )
-
-
-    closest_index = current_point
-
-    closest_distance = float(
-        "inf"
-    )
-
-
-    start_index = max(
-
-        0,
-
-        current_point - SEARCH_BACK
-
-    )
-
-
-    end_index = min(
-
-        len(inner_points),
-
-        current_point +
-        SEARCH_FORWARD +
-        1
-
-    )
-
-
-    for i in range(
-
-        start_index,
-
-        end_index
-
-    ):
-
-        track_point = pygame.math.Vector2(
-
-            inner_points[i]
-
-        )
-
-
-        distance = car_position.distance_to(
-
-            track_point
-
-        )
-
-
-        if distance < closest_distance:
-
-            closest_distance = distance
-
-            closest_index = i
-
-
-    # --------------------------------
-    # Lap Detection
-    # --------------------------------
-
-    near_end = (
-
-        previous_point
-        > len(inner_points) * 0.8
-
-    )
-
-
-    near_start = (
-
-        closest_index
-        < len(inner_points) * 0.2
-
-    )
-
-
-    if near_end and near_start:
-
-        lap += 1
-
-
-    near_start_before = (
-
-        previous_point
-        < len(inner_points) * 0.2
-
-    )
-
-
-    near_end_now = (
-
-        closest_index
-        > len(inner_points) * 0.8
-
-    )
-
-
-    if near_start_before and near_end_now:
-
-        lap -= 1
-
-
-    current_point = closest_index
-
-    previous_point = closest_index
-
-
-    distance_traveled = (
-
-        lap *
-        track_length
-
-        +
-
-        track_distances[
-            current_point
-        ]
-
-    )
 
 
     # --------------------------------
@@ -427,7 +319,7 @@ while running:
 
 
     # --------------------------------
-    # Neural Network
+    # Neural network
     # --------------------------------
 
     if not crashed:
@@ -435,7 +327,6 @@ while running:
         output = brain.forward(
 
             sensor_values
-
         )
 
 
@@ -449,23 +340,21 @@ while running:
             throttle,
 
             steer
-
         )
 
 
     # --------------------------------
-    # Draw
+    # Draw background
     # --------------------------------
 
     screen.fill(
 
         (30, 120, 50)
-
     )
 
 
     # --------------------------------
-    # Outer Track
+    # Outer track
     # --------------------------------
 
     if len(outer_points) >= 2:
@@ -481,12 +370,11 @@ while running:
             outer_points,
 
             6
-
         )
 
 
     # --------------------------------
-    # Inner Track
+    # Inner track
     # --------------------------------
 
     if len(inner_points) >= 2:
@@ -502,7 +390,6 @@ while running:
             inner_points,
 
             6
-
         )
 
 
@@ -519,7 +406,6 @@ while running:
             my_car.x_pos,
 
             my_car.y_pos
-
         )
 
 
@@ -527,99 +413,94 @@ while running:
     # Car
     # --------------------------------
 
-    rotated_car = pygame.transform.rotate(
+    if my_car.is_alive:
 
-        car_image,
+        rotated_car = pygame.transform.rotate(
 
-        my_car.angle - 90
+            car_image,
 
-    )
-
-
-    car_rect = rotated_car.get_rect(
-
-        center=(
-
-            my_car.x_pos,
-
-            my_car.y_pos
-
+            my_car.angle - 90
         )
 
+
+        car_rect = rotated_car.get_rect(
+
+            center=(
+
+                my_car.x_pos,
+
+                my_car.y_pos
+            )
+        )
+
+
+        screen.blit(
+
+            rotated_car,
+
+            car_rect
+        )
+
+
+    # --------------------------------
+    # Status
+    # --------------------------------
+
+    if my_car.is_alive:
+
+        status = "ALIVE"
+
+    else:
+
+        status = "CRASHED"
+
+
+    status_text = font.render(
+
+        status,
+
+        True,
+
+        (255, 255, 255)
     )
 
 
     screen.blit(
 
-        rotated_car,
-
-        car_rect
-
-    )
-
-
-    # --------------------------------
-    # UI
-    # --------------------------------
-
-    distance_text = font.render(
-
-        f"Distance: {distance_traveled:.1f}",
-
-        True,
-
-        (255, 255, 255)
-
-    )
-
-
-    lap_text = font.render(
-
-        f"Lap: {lap}",
-
-        True,
-
-        (255, 255, 255)
-
-    )
-
-
-    point_text = font.render(
-
-        f"Track Point: {current_point}",
-
-        True,
-
-        (255, 255, 255)
-
-    )
-
-
-    screen.blit(
-
-        distance_text,
+        status_text,
 
         (20, 20)
-
     )
 
 
-    screen.blit(
+    # --------------------------------
+    # Output
+    # --------------------------------
 
-        lap_text,
+    if my_car.is_alive:
 
-        (20, 50)
+        output = brain.forward(
+            sensor_values
+        )
 
-    )
+
+        output_text = font.render(
+
+            f"Throttle: {output[0]:.2f} "
+            f"Steer: {output[1]:.2f}",
+
+            True,
+
+            (255, 255, 255)
+        )
 
 
-    screen.blit(
+        screen.blit(
 
-        point_text,
+            output_text,
 
-        (20, 80)
-
-    )
+            (20, 50)
+        )
 
 
     pygame.display.flip()

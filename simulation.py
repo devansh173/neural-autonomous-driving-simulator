@@ -9,10 +9,9 @@ from sensor import Sensor
 WIDTH = 1000
 HEIGHT = 800
 
-TRACK_NAME = "three"
+TRACK_NAME = "tough"
 
 TRACK_FOLDER = "tracks"
-
 
 SEARCH_BACK = 20
 SEARCH_FORWARD = 20
@@ -33,64 +32,16 @@ def load_track(name):
         return json.load(file)
 
 
-def create_sensors():
-
-    return {
-
-        "S0": Sensor(0, 150),
-
-        "S1": Sensor(30, 150),
-
-        "S2": Sensor(-30, 150),
-
-        "S3": Sensor(60, 150),
-
-        "S4": Sensor(-60, 150),
-
-        "S5": Sensor(110, 150),
-
-        "S6": Sensor(-110, 150)
-
-    }
-
-
-def create_car():
-
-    return Car(
-        100,
-        600,
-        0,
-        90,
-        True
-    )
-
-
-def reset_agent(agent):
-
-    agent["car"] = create_car()
-
-    agent["sensors"] = create_sensors()
-
-    agent["previous_point"] = 0
-
-    agent["current_point"] = 0
-
-    agent["lap"] = 0
-
-    agent["distance"] = 0
-
-    agent["crashed"] = False
-
-
 def run_simulation(
     population,
-    screen,
-    clock,
-    font
+    show_simulation=True
 ):
 
+    pygame.init()
+
+
     # --------------------------------
-    # Load Track
+    # Load track
     # --------------------------------
 
     track = load_track(
@@ -103,7 +54,7 @@ def run_simulation(
 
 
     # --------------------------------
-    # Track Distance
+    # Track distance
     # --------------------------------
 
     track_distances = [0]
@@ -135,53 +86,141 @@ def run_simulation(
 
 
     # --------------------------------
-    # Reset Cars
+    # Pygame
     # --------------------------------
 
-    for agent in population:
+    screen = None
+    clock = None
+    font = None
 
-        reset_agent(
-            agent
+
+    if show_simulation:
+
+        screen = pygame.display.set_mode(
+            (WIDTH, HEIGHT)
+        )
+
+        pygame.display.set_caption(
+            TRACK_NAME + " - Training"
+        )
+
+        clock = pygame.time.Clock()
+
+        font = pygame.font.Font(
+            None,
+            30
         )
 
 
     # --------------------------------
-    # Car Images
+    # Create cars
     # --------------------------------
 
-    colors = [
+    cars = []
 
-        (200, 50, 50),
-        (50, 50, 200),
-        (50, 200, 50),
-        (200, 200, 50),
-        (200, 50, 200),
-        (50, 200, 200),
-        (255, 120, 50),
-        (150, 50, 255),
-        (255, 100, 150),
-        (100, 255, 100)
 
+    for i in range(
+        len(population)
+    ):
+
+        car = Car(
+            100,
+            600,
+            0,
+            90,
+            True
+        )
+
+        cars.append(
+            car
+        )
+
+
+    # --------------------------------
+    # Create sensors
+    # --------------------------------
+
+    sensors = []
+
+
+    for i in range(
+        len(population)
+    ):
+
+        car_sensors = {
+
+            "S0": Sensor(0, 150),
+
+            "S1": Sensor(30, 150),
+
+            "S2": Sensor(-30, 150),
+
+            "S3": Sensor(60, 150),
+
+            "S4": Sensor(-60, 150),
+
+            "S5": Sensor(110, 150),
+
+            "S6": Sensor(-110, 150)
+        }
+
+        sensors.append(
+            car_sensors
+        )
+
+
+    # --------------------------------
+    # Progress
+    # --------------------------------
+
+    current_points = [
+        0
+        for i in population
+    ]
+
+    previous_points = [
+        0
+        for i in population
+    ]
+
+    laps = [
+        0
+        for i in population
+    ]
+
+    max_distances = [
+        0
+        for i in population
     ]
 
 
-    car_images = []
+    # --------------------------------
+    # Prevent repeated lap detection
+    # --------------------------------
+
+    forward_lap_lock = [
+        False
+        for i in population
+    ]
+
+    reverse_lap_lock = [
+        False
+        for i in population
+    ]
 
 
-    for color in colors:
+    # --------------------------------
+    # Car image
+    # --------------------------------
 
-        image = pygame.Surface(
-            (20, 35),
-            pygame.SRCALPHA
-        )
+    car_image = pygame.Surface(
+        (20, 35),
+        pygame.SRCALPHA
+    )
 
-        image.fill(
-            color
-        )
-
-        car_images.append(
-            image
-        )
+    car_image.fill(
+        (200, 50, 50)
+    )
 
 
     # --------------------------------
@@ -190,6 +229,8 @@ def run_simulation(
 
     running = True
 
+    user_stopped = False
+
 
     while running:
 
@@ -197,36 +238,42 @@ def run_simulation(
         # Events
         # --------------------------------
 
-        for event in pygame.event.get():
+        if show_simulation:
 
-            if event.type == pygame.QUIT:
+            for event in pygame.event.get():
 
-                raise SystemExit
+                if event.type == pygame.QUIT:
+
+                    running = False
+
+                    user_stopped = True
 
 
         # --------------------------------
-        # Update Cars
+        # Update every car
         # --------------------------------
 
-        for index, agent in enumerate(
-            population
+        for car_index in range(
+            len(cars)
         ):
 
-            if agent["crashed"]:
+            car = cars[
+                car_index
+            ]
+
+
+            if not car.is_alive:
 
                 continue
 
 
-            car = agent["car"]
-
-            sensors = agent["sensors"]
-
-
             # --------------------------------
-            # Sensors
+            # Update sensors
             # --------------------------------
 
-            for sensor in sensors.values():
+            for sensor in sensors[
+                car_index
+            ].values():
 
                 sensor.update(
 
@@ -239,31 +286,33 @@ def run_simulation(
                     outer_points,
 
                     inner_points
-
                 )
 
 
+            # --------------------------------
+            # Sensor values
+            # --------------------------------
+
             sensor_values = [
 
-                sensors["S0"].value,
+                sensors[car_index]["S0"].value,
 
-                sensors["S1"].value,
+                sensors[car_index]["S1"].value,
 
-                sensors["S2"].value,
+                sensors[car_index]["S2"].value,
 
-                sensors["S3"].value,
+                sensors[car_index]["S3"].value,
 
-                sensors["S4"].value,
+                sensors[car_index]["S4"].value,
 
-                sensors["S5"].value,
+                sensors[car_index]["S5"].value,
 
-                sensors["S6"].value
-
+                sensors[car_index]["S6"].value
             ]
 
 
             # --------------------------------
-            # Find Track Point
+            # Find closest track point
             # --------------------------------
 
             car_position = pygame.math.Vector2(
@@ -271,49 +320,35 @@ def run_simulation(
                 car.x_pos,
 
                 car.y_pos
-
             )
 
 
-            current_point = agent[
-                "current_point"
+            closest_index = current_points[
+                car_index
             ]
-
-
-            closest_index = current_point
 
             closest_distance = float(
                 "inf"
             )
 
 
-            start_index = max(
+            # Search around current position
+            #
+            # This also wraps around the track.
 
-                0,
-
-                current_point - SEARCH_BACK
-
-            )
-
-
-            end_index = min(
-
-                len(inner_points),
-
-                current_point +
-                SEARCH_FORWARD +
-                1
-
-            )
-
-
-            for i in range(
-                start_index,
-                end_index
+            for offset in range(
+                -SEARCH_BACK,
+                SEARCH_FORWARD + 1
             ):
 
+                index = (
+                    current_points[car_index]
+                    + offset
+                ) % len(inner_points)
+
+
                 track_point = pygame.math.Vector2(
-                    inner_points[i]
+                    inner_points[index]
                 )
 
 
@@ -326,23 +361,22 @@ def run_simulation(
 
                     closest_distance = distance
 
-                    closest_index = i
+                    closest_index = index
 
 
-            # --------------------------------
-            # Lap Detection
-            # --------------------------------
-
-            previous_point = agent[
-                "previous_point"
+            previous = previous_points[
+                car_index
             ]
 
 
+            # --------------------------------
+            # Forward lap detection
+            # --------------------------------
+
             near_end = (
 
-                previous_point
+                previous
                 > len(inner_points) * 0.8
-
             )
 
 
@@ -350,20 +384,53 @@ def run_simulation(
 
                 closest_index
                 < len(inner_points) * 0.2
-
             )
 
 
             if near_end and near_start:
 
-                agent["lap"] += 1
+                if not forward_lap_lock[
+                    car_index
+                ]:
 
+                    laps[car_index] += 1
+
+                    forward_lap_lock[
+                        car_index
+                    ] = True
+
+                    reverse_lap_lock[
+                        car_index
+                    ] = False
+
+                    print(
+                        f"Car {car_index} "
+                        f"forward lap: "
+                        f"{laps[car_index]}"
+                    )
+
+
+            # --------------------------------
+            # Release forward lock
+            # --------------------------------
+
+            if closest_index > (
+                len(inner_points) * 0.3
+            ):
+
+                forward_lap_lock[
+                    car_index
+                ] = False
+
+
+            # --------------------------------
+            # Reverse lap detection
+            # --------------------------------
 
             near_start_before = (
 
-                previous_point
+                previous
                 < len(inner_points) * 0.2
-
             )
 
 
@@ -371,44 +438,94 @@ def run_simulation(
 
                 closest_index
                 > len(inner_points) * 0.8
-
             )
 
 
-            if near_start_before and near_end_now:
+            if (
+                near_start_before
+                and near_end_now
+            ):
 
-                agent["lap"] -= 1
+                if not reverse_lap_lock[
+                    car_index
+                ]:
 
+                    laps[car_index] -= 1
 
-            agent["current_point"] = (
-                closest_index
-            )
+                    reverse_lap_lock[
+                        car_index
+                    ] = True
 
-            agent["previous_point"] = (
-                closest_index
-            )
+                    forward_lap_lock[
+                        car_index
+                    ] = False
+
+                    print(
+                        f"Car {car_index} "
+                        f"reverse lap: "
+                        f"{laps[car_index]}"
+                    )
 
 
             # --------------------------------
-            # Distance
+            # Release reverse lock
             # --------------------------------
 
-            agent["distance"] = (
+            if closest_index < (
+                len(inner_points) * 0.7
+            ):
 
-                agent["lap"] *
-                track_length
+                reverse_lap_lock[
+                    car_index
+                ] = False
 
-                +
 
-                track_distances[
+            # --------------------------------
+            # Save progress
+            # --------------------------------
+
+            current_points[
+                car_index
+            ] = closest_index
+
+
+            previous_points[
+                car_index
+            ] = closest_index
+
+
+            # --------------------------------
+            # Calculate current distance
+            # --------------------------------
+
+            current_distance = (
+
+                laps[car_index]
+                * track_length
+
+                + track_distances[
                     closest_index
                 ]
-
             )
 
 
             # --------------------------------
-            # Crash
+            # IMPORTANT:
+            #
+            # Fitness NEVER decreases
+            # --------------------------------
+
+            if current_distance > max_distances[
+                car_index
+            ]:
+
+                max_distances[
+                    car_index
+                ] = current_distance
+
+
+            # --------------------------------
+            # Crash detection
             # --------------------------------
 
             crashed = False
@@ -422,234 +539,320 @@ def run_simulation(
 
                     car.kill()
 
-                    agent["crashed"] = True
-
                     crashed = True
 
                     break
 
 
-            if crashed:
-
-                continue
-
-
             # --------------------------------
-            # Neural Network
+            # Neural network
             # --------------------------------
 
-            output = agent[
-                "brain"
-            ].forward(
-                sensor_values
-            )
+            if not crashed:
 
-
-            throttle = output[0]
-
-            steer = output[1]
-
-
-            # --------------------------------
-            # Car Update
-            # --------------------------------
-
-            car.update(
-                throttle,
-                steer
-            )
-
-
-        # --------------------------------
-        # Check All Crashed
-        # --------------------------------
-
-        all_crashed = True
-
-
-        for agent in population:
-
-            if not agent["crashed"]:
-
-                all_crashed = False
-
-                break
-
-
-        if all_crashed:
-
-            break
-
-
-        # --------------------------------
-        # Draw Background
-        # --------------------------------
-
-        screen.fill(
-            (30, 120, 50)
-        )
-
-
-        # --------------------------------
-        # Draw Outer Track
-        # --------------------------------
-
-        if len(outer_points) >= 2:
-
-            pygame.draw.lines(
-
-                screen,
-
-                (255, 255, 255),
-
-                False,
-
-                outer_points,
-
-                6
-
-            )
-
-
-        # --------------------------------
-        # Draw Inner Track
-        # --------------------------------
-
-        if len(inner_points) >= 2:
-
-            pygame.draw.lines(
-
-                screen,
-
-                (255, 255, 255),
-
-                False,
-
-                inner_points,
-
-                6
-
-            )
-
-
-        # --------------------------------
-        # Draw Cars
-        # --------------------------------
-
-        for index, agent in enumerate(
-            population
-        ):
-
-            if agent["crashed"]:
-
-                continue
-
-
-            car = agent["car"]
-
-
-            rotated_car = pygame.transform.rotate(
-
-                car_images[index],
-
-                car.angle - 90
-
-            )
-
-
-            car_rect = rotated_car.get_rect(
-
-                center=(
-
-                    car.x_pos,
-
-                    car.y_pos
-
+                output = population[
+                    car_index
+                ].forward(
+                    sensor_values
                 )
 
+
+                throttle = output[0]
+
+                steer = output[1]
+
+
+                car.update(
+                    throttle,
+                    steer
+                )
+
+
+        # --------------------------------
+        # Count alive cars
+        # --------------------------------
+
+        alive_cars = 0
+
+
+        for car in cars:
+
+            if car.is_alive:
+
+                alive_cars += 1
+
+
+        # --------------------------------
+        # Stop when everyone crashes
+        # --------------------------------
+
+        if alive_cars == 0:
+
+            running = False
+
+
+        # --------------------------------
+        # Draw
+        # --------------------------------
+
+        if show_simulation:
+
+            screen.fill(
+                (30, 120, 50)
+            )
+
+
+            # Outer
+
+            if len(outer_points) >= 2:
+
+                pygame.draw.lines(
+
+                    screen,
+
+                    (255, 255, 255),
+
+                    False,
+
+                    outer_points,
+
+                    6
+                )
+
+
+            # Inner
+
+            if len(inner_points) >= 2:
+
+                pygame.draw.lines(
+
+                    screen,
+
+                    (255, 255, 255),
+
+                    False,
+
+                    inner_points,
+
+                    6
+                )
+
+
+            # Cars
+
+            for car_index in range(
+                len(cars)
+            ):
+
+                car = cars[
+                    car_index
+                ]
+
+
+                if not car.is_alive:
+
+                    continue
+
+
+                # Sensors
+
+                for sensor in sensors[
+                    car_index
+                ].values():
+
+                    sensor.draw(
+
+                        screen,
+
+                        car.x_pos,
+
+                        car.y_pos
+                    )
+
+
+                # Car
+
+                rotated_car = pygame.transform.rotate(
+
+                    car_image,
+
+                    car.angle - 90
+                )
+
+
+                car_rect = rotated_car.get_rect(
+
+                    center=(
+
+                        car.x_pos,
+
+                        car.y_pos
+                    )
+                )
+
+
+                screen.blit(
+
+                    rotated_car,
+
+                    car_rect
+                )
+
+
+            # --------------------------------
+            # Best car
+            # --------------------------------
+
+            best_index = max_distances.index(
+                max(max_distances)
+            )
+
+
+            best_distance = max_distances[
+                best_index
+            ]
+
+
+            best_lap = laps[
+                best_index
+            ]
+
+
+            # --------------------------------
+            # Text
+            # --------------------------------
+
+            best_text = font.render(
+
+                f"Best Distance: "
+                f"{best_distance:.1f}",
+
+                True,
+
+                (255, 255, 255)
+            )
+
+
+            alive_text = font.render(
+
+                f"Cars Alive: "
+                f"{alive_cars}",
+
+                True,
+
+                (255, 255, 255)
+            )
+
+
+            lap_text = font.render(
+
+                f"Best Lap: "
+                f"{best_lap}",
+
+                True,
+
+                (255, 255, 255)
             )
 
 
             screen.blit(
+                best_text,
+                (20, 20)
+            )
 
-                rotated_car,
+            screen.blit(
+                alive_text,
+                (20, 50)
+            )
 
-                car_rect
-
+            screen.blit(
+                lap_text,
+                (20, 80)
             )
 
 
-        # --------------------------------
-        # Find Current Best
-        # --------------------------------
+            pygame.display.flip()
 
-        best = max(
-
-            population,
-
-            key=lambda agent:
-            agent["distance"]
-
-        )
-
-
-        distance_text = font.render(
-
-            f"Best Distance: {best['distance']:.1f}",
-
-            True,
-
-            (255, 255, 255)
-
-        )
-
-
-        lap_text = font.render(
-
-            f"Lap: {best['lap']}",
-
-            True,
-
-            (255, 255, 255)
-
-        )
-
-
-        screen.blit(
-
-            distance_text,
-
-            (20, 20)
-
-        )
-
-
-        screen.blit(
-
-            lap_text,
-
-            (20, 50)
-
-        )
-
-
-        pygame.display.flip()
-
-        clock.tick(60)
+            clock.tick(60)
 
 
     # --------------------------------
-    # Return Best Car
+    # User closed window
     # --------------------------------
 
-    best_car = max(
+    if user_stopped:
 
-        population,
+        pygame.quit()
 
-        key=lambda agent:
-        agent["distance"]
+        return None
 
+
+    # --------------------------------
+    # Find best car
+    # --------------------------------
+
+    best_index = max_distances.index(
+        max(max_distances)
     )
 
 
-    return best_car
+    best_brain = population[
+        best_index
+    ]
+
+
+    best_distance = max_distances[
+        best_index
+    ]
+
+
+    best_lap = laps[
+        best_index
+    ]
+
+
+    print()
+    print(
+        "================================"
+    )
+
+    print(
+        "GENERATION COMPLETE"
+    )
+
+    print(
+        "================================"
+    )
+
+    print(
+        "Best car:",
+        best_index
+    )
+
+    print(
+        "Best distance:",
+        best_distance
+    )
+
+    print(
+        "Best lap:",
+        best_lap
+    )
+
+    print(
+        "================================"
+    )
+
+
+    # --------------------------------
+    # Do NOT pygame.quit() here
+    #
+    # train.py needs to run another
+    # generation.
+    # --------------------------------
+
+    return (
+        best_brain,
+        best_distance,
+        best_lap
+    )

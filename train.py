@@ -1,9 +1,8 @@
-import pygame
-import copy
-import json
 import os
+import json
 
 from neural_network import Neural_Network
+
 from simulation import run_simulation
 
 
@@ -15,48 +14,20 @@ POPULATION_SIZE = 10
 
 ARCHITECTURE = [7, 8, 2]
 
-CHECKPOINT_FILE = "training_checkpoint.json"
+MUTATION_RATE = 0.10
 
-BEST_BRAIN_FILE = "best_brain.json"
+MUTATION_STRENGTH = 0.30
 
-
-MUTATION_RATE = 0.3
-
-MUTATION_STRENGTH = 0.3
-
-
-# --------------------------------
-# Create Empty Agent
-# --------------------------------
-
-def create_agent(brain):
-
-    return {
-
-        "brain": brain,
-
-        "car": None,
-
-        "sensors": None,
-
-        "previous_point": 0,
-
-        "current_point": 0,
-
-        "lap": 0,
-
-        "distance": 0,
-
-        "crashed": False
-
-    }
+CHECKPOINT_FILE = (
+    "training_checkpoint.json"
+)
 
 
 # --------------------------------
-# Create Initial Population
+# Create random population
 # --------------------------------
 
-def create_population():
+def create_random_population():
 
     population = []
 
@@ -69,11 +40,8 @@ def create_population():
             ARCHITECTURE
         )
 
-
         population.append(
-            create_agent(
-                brain
-            )
+            brain
         )
 
 
@@ -81,10 +49,10 @@ def create_population():
 
 
 # --------------------------------
-# Create Next Generation
+# Create next population
 # --------------------------------
 
-def create_next_generation(
+def create_next_population(
     best_brain
 ):
 
@@ -92,32 +60,21 @@ def create_next_generation(
 
 
     # --------------------------------
-    # Elite
+    # Keep best brain unchanged
     # --------------------------------
-
-    elite_brain = copy.deepcopy(
-        best_brain
-    )
-
 
     population.append(
-        create_agent(
-            elite_brain
-        )
+        best_brain.copy()
     )
 
 
     # --------------------------------
-    # Mutated Brains
+    # Create mutated children
     # --------------------------------
 
-    for i in range(
-        POPULATION_SIZE - 1
-    ):
+    while len(population) < POPULATION_SIZE:
 
-        brain = copy.deepcopy(
-            best_brain
-        )
+        brain = best_brain.copy()
 
 
         brain.mutate(
@@ -125,14 +82,11 @@ def create_next_generation(
             mutation_rate=MUTATION_RATE,
 
             mutation_strength=MUTATION_STRENGTH
-
         )
 
 
         population.append(
-            create_agent(
-                brain
-            )
+            brain
         )
 
 
@@ -140,36 +94,32 @@ def create_next_generation(
 
 
 # --------------------------------
-# Save Checkpoint
+# Save checkpoint
+#
+# FIX: this now saves "architecture" at
+# the top level, since that's what
+# load_checkpoint() (and run.py) actually
+# check for. Before, only "generation" and
+# "best_brain" were saved, so
+# load_checkpoint() could never validate
+# the file and always fell back to a fresh
+# random population -- that's why your
+# cars looked random after every restart.
 # --------------------------------
 
 def save_checkpoint(
-    population,
     generation,
-    best_brain,
-    best_distance
+    best_brain
 ):
 
     data = {
 
         "generation": generation,
 
-        "best_distance": best_distance,
+        "architecture": ARCHITECTURE,
 
-        "best_brain": best_brain.get_data(),
-
-        "population": []
-
+        "best_brain": best_brain.get_data()
     }
-
-
-    for agent in population:
-
-        data["population"].append(
-
-            agent["brain"].get_data()
-
-        )
 
 
     with open(
@@ -184,167 +134,155 @@ def save_checkpoint(
             file,
 
             indent=4
-
         )
 
 
+    print()
+    print(
+        "Checkpoint saved."
+    )
+
+
 # --------------------------------
-# Load Checkpoint
+# Load checkpoint
+#
+# FIX: checks the keys that are actually
+# saved ("architecture", "best_brain")
+# instead of "population", which never
+# existed in the saved file.
 # --------------------------------
 
 def load_checkpoint():
 
-    if not os.path.exists(
-        CHECKPOINT_FILE
-    ):
+    if not os.path.exists(CHECKPOINT_FILE):
+        return None
+
+    try:
+
+        with open(CHECKPOINT_FILE, "r") as file:
+            checkpoint = json.load(file)
+
+        if "architecture" not in checkpoint:
+            print("Old checkpoint format detected.")
+            print("Starting training from a new population.")
+            return None
+
+        if "best_brain" not in checkpoint:
+            print("Invalid checkpoint.")
+            print("Starting training from a new population.")
+            return None
+
+        if checkpoint["architecture"] != ARCHITECTURE:
+            print("Checkpoint architecture does not match.")
+            print("Starting training from a new population.")
+            return None
+
+        print(
+            "Checkpoint loaded. "
+            f"Generation: {checkpoint.get('generation', 0)}"
+        )
+
+        return checkpoint
+
+    except (json.JSONDecodeError, KeyError, TypeError):
+
+        print("Checkpoint is corrupted or incompatible.")
+        print("Starting training from a new population.")
 
         return None
 
 
-    with open(
-        CHECKPOINT_FILE,
-        "r"
-    ) as file:
+# --------------------------------
+# Main
+# --------------------------------
 
-        data = json.load(
-            file
+def main():
+
+    checkpoint = load_checkpoint()
+
+
+    # --------------------------------
+    # New training
+    # --------------------------------
+
+    if checkpoint is None:
+
+        print(
+            "No checkpoint found."
+        )
+
+        print(
+            "Creating random population..."
         )
 
 
-    population = []
+        generation = 0
+
+        population = (
+            create_random_population()
+        )
 
 
-    for brain_data in data["population"]:
+    # --------------------------------
+    # Resume training
+    #
+    # FIX: checkpoint is a dict (from
+    # load_checkpoint), not a tuple, so we
+    # read it by key instead of by index.
+    # We also have to rebuild an actual
+    # Neural_Network object from the saved
+    # weights/biases via set_data() --
+    # the old code tried to treat raw
+    # checkpoint data as if it were already
+    # a brain object.
+    # --------------------------------
 
-        brain = Neural_Network(
+    else:
+
+        last_generation = checkpoint[
+            "generation"
+        ]
+
+        best_brain = Neural_Network(
             ARCHITECTURE
         )
 
-
-        brain.set_data(
-            brain_data
+        best_brain.set_data(
+            checkpoint["best_brain"]
         )
 
 
-        population.append(
+        print(
+            "Checkpoint found."
+        )
 
-            create_agent(
-                brain
+        print(
+            "Last completed generation:",
+            last_generation
+        )
+
+
+        # The saved brain belongs to
+        # the last completed generation.
+        #
+        # So the new population is
+        # generation + 1.
+
+        generation = (
+            last_generation + 1
+        )
+
+
+        population = (
+            create_next_population(
+                best_brain
             )
-
         )
 
 
-    best_brain = Neural_Network(
-        ARCHITECTURE
-    )
-
-
-    best_brain.set_data(
-        data["best_brain"]
-    )
-
-
-    generation = data["generation"]
-
-    best_distance = data[
-        "best_distance"
-    ]
-
-
-    return (
-        population,
-        generation,
-        best_brain,
-        best_distance
-    )
-
-
-# --------------------------------
-# Pygame
-# --------------------------------
-
-pygame.init()
-
-
-screen = pygame.display.set_mode(
-    (1000, 800)
-)
-
-
-pygame.display.set_caption(
-    "Neural Network Training"
-)
-
-
-clock = pygame.time.Clock()
-
-
-font = pygame.font.Font(
-    None,
-    30
-)
-
-
-# --------------------------------
-# Load / Create Training
-# --------------------------------
-
-checkpoint = load_checkpoint()
-
-
-if checkpoint is None:
-
-    print(
-        "No checkpoint found."
-    )
-
-
-    population = create_population()
-
-    generation = 1
-
-    best_ever_brain = copy.deepcopy(
-        population[0]["brain"]
-    )
-
-    best_ever_distance = float(
-        "-inf"
-    )
-
-
-else:
-
-    (
-        population,
-        generation,
-        best_ever_brain,
-        best_ever_distance
-    ) = checkpoint
-
-
-    print(
-        "Checkpoint loaded."
-    )
-
-
-    print(
-        "Resuming generation:",
-        generation
-    )
-
-
-    print(
-        "Best distance so far:",
-        best_ever_distance
-    )
-
-
-# --------------------------------
-# Training Loop
-# --------------------------------
-
-try:
+    # --------------------------------
+    # Training loop
+    # --------------------------------
 
     while True:
 
@@ -354,7 +292,7 @@ try:
         )
 
         print(
-            "Generation:",
+            "STARTING GENERATION",
             generation
         )
 
@@ -363,146 +301,96 @@ try:
         )
 
 
-        # --------------------------------
-        # Run One Generation
-        # --------------------------------
-
-        best_car = run_simulation(
+        result = run_simulation(
 
             population,
 
-            screen,
-
-            clock,
-
-            font
-
+            show_simulation=True
         )
 
 
-        current_best_distance = (
-            best_car["distance"]
-        )
+        # --------------------------------
+        # User stopped simulation
+        # --------------------------------
+
+        if result is None:
+
+            print()
+            print(
+                "Training stopped."
+            )
+
+            print(
+                "The previous completed "
+                "generation is saved."
+            )
+
+            break
+
+
+        # --------------------------------
+        # Get result
+        # --------------------------------
+
+        best_brain = result[
+            0
+        ]
+
+        best_distance = result[
+            1
+        ]
+
+        best_lap = result[
+            2
+        ]
 
 
         print()
+        print(
+            "Best distance:",
+            best_distance
+        )
 
         print(
-            "Generation best:",
-            current_best_distance
-        )
-
-
-        print(
-            "Generation lap:",
-            best_car["lap"]
+            "Best lap:",
+            best_lap
         )
 
 
         # --------------------------------
-        # Check Best Ever
-        # --------------------------------
-
-        if current_best_distance > best_ever_distance:
-
-            best_ever_distance = (
-                current_best_distance
-            )
-
-
-            best_ever_brain = copy.deepcopy(
-                best_car["brain"]
-            )
-
-
-            print(
-                "NEW BEST EVER!"
-            )
-
-
-            print(
-                "Best distance:",
-                best_ever_distance
-            )
-
-
-            # Save best brain immediately
-
-            best_ever_brain.save(
-                BEST_BRAIN_FILE
-            )
-
-
-        else:
-
-            print(
-                "Best ever:",
-                best_ever_distance
-            )
-
-
-        # --------------------------------
-        # Create Next Generation
-        # --------------------------------
-
-        population = create_next_generation(
-
-            best_car["brain"]
-
-        )
-
-
-        generation += 1
-
-
-        # --------------------------------
-        # Save Checkpoint
+        # Save best brain
         # --------------------------------
 
         save_checkpoint(
 
-            population,
-
             generation,
 
-            best_ever_brain,
-
-            best_ever_distance
-
+            best_brain
         )
 
 
-        print(
-            "Checkpoint saved."
+        # --------------------------------
+        # Create next population
+        # --------------------------------
+
+        population = (
+            create_next_population(
+                best_brain
+            )
         )
 
 
-except KeyboardInterrupt:
+        # --------------------------------
+        # Next generation
+        # --------------------------------
 
-    print()
-    print(
-        "================================"
-    )
-
-    print(
-        "TRAINING STOPPED"
-    )
-
-    print(
-        "================================"
-    )
-
-    print(
-        "Generation:",
-        generation
-    )
-
-    print(
-        "Best distance:",
-        best_ever_distance
-    )
+        generation += 1
 
 
-finally:
+# --------------------------------
+# Start
+# --------------------------------
 
-    pygame.quit()
+if __name__ == "__main__":
+
+    main()

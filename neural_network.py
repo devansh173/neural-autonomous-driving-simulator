@@ -1,7 +1,5 @@
 import random
 import math
-import json
-import copy
 
 
 class Layer:
@@ -47,8 +45,8 @@ class Layer:
             for j in range(len(inputs)):
 
                 weighted_sum += (
-                    inputs[j] *
-                    self.weights[i][j]
+                    inputs[j]
+                    * self.weights[i][j]
                 )
 
             weighted_sum += self.biases[i]
@@ -66,19 +64,23 @@ class Neural_Network:
 
     def __init__(self, architecture):
 
+        self.architecture = architecture.copy()
+
         self.layers = []
 
         for i in range(
             len(architecture) - 1
         ):
 
-            layer = Layer(
-                architecture[i],
-                architecture[i + 1]
-            )
+            input_count = architecture[i]
+
+            neuron_count = architecture[i + 1]
 
             self.layers.append(
-                layer
+                Layer(
+                    input_count,
+                    neuron_count
+                )
             )
 
 
@@ -95,10 +97,39 @@ class Neural_Network:
         return output
 
 
+    def copy(self):
+
+        new_brain = Neural_Network(
+            self.architecture
+        )
+
+        for i in range(
+            len(self.layers)
+        ):
+
+            for j in range(
+                len(self.layers[i].weights)
+            ):
+
+                for k in range(
+                    len(self.layers[i].weights[j])
+                ):
+
+                    new_brain.layers[i].weights[j][k] = (
+                        self.layers[i].weights[j][k]
+                    )
+
+                new_brain.layers[i].biases[j] = (
+                    self.layers[i].biases[j]
+                )
+
+        return new_brain
+
+
     def mutate(
         self,
-        mutation_rate=0.1,
-        mutation_strength=0.1
+        mutation_rate=0.10,
+        mutation_strength=0.30
     ):
 
         for layer in self.layers:
@@ -113,41 +144,39 @@ class Neural_Network:
 
                     if random.random() < mutation_rate:
 
-                        layer.weights[i][j] += random.uniform(
-                            -mutation_strength,
+                        layer.weights[i][j] += random.gauss(
+                            0,
                             mutation_strength
                         )
 
 
                 if random.random() < mutation_rate:
 
-                    layer.biases[i] += random.uniform(
-                        -mutation_strength,
+                    layer.biases[i] += random.gauss(
+                        0,
                         mutation_strength
                     )
 
 
-    def copy(self):
-
-        return copy.deepcopy(
-            self
-        )
-
+    # --------------------------------
+    # FIX: Layer stores "biases" (plural),
+    # not "bias". The old code read/wrote
+    # layer.bias, which doesn't exist and
+    # would raise AttributeError -- and
+    # even if it hadn't crashed, it meant
+    # bias values were never actually
+    # saved/restored correctly.
+    # --------------------------------
 
     def get_data(self):
 
-        data = {
-            "layers": []
-        }
+        data = []
 
         for layer in self.layers:
 
-            data["layers"].append({
-
+            data.append({
                 "weights": layer.weights,
-
                 "biases": layer.biases
-
             })
 
         return data
@@ -155,46 +184,13 @@ class Neural_Network:
 
     def set_data(self, data):
 
-        for i, layer_data in enumerate(
-            data["layers"]
-        ):
+        for layer, layer_data in zip(self.layers, data):
 
-            self.layers[i].weights = (
-                layer_data["weights"]
-            )
+            # Copy the lists rather than aliasing
+            # the JSON-loaded lists directly.
 
-            self.layers[i].biases = (
-                layer_data["biases"]
-            )
+            layer.weights = [
+                row[:] for row in layer_data["weights"]
+            ]
 
-
-    def save(self, filename):
-
-        data = self.get_data()
-
-        with open(
-            filename,
-            "w"
-        ) as file:
-
-            json.dump(
-                data,
-                file,
-                indent=4
-            )
-
-
-    def load(self, filename):
-
-        with open(
-            filename,
-            "r"
-        ) as file:
-
-            data = json.load(
-                file
-            )
-
-        self.set_data(
-            data
-        )
+            layer.biases = layer_data["biases"][:]
