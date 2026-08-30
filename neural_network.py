@@ -53,10 +53,28 @@ class Neural_Network:
         return inputs
 
 
-inputs = [0.2, 0.5, 0.8, 0.3, 0.9, 0.4, 0.7]
+    def mutate(self, mutation_rate=0.1, mutation_strength=0.1):
 
-brain = Neural_Network([7, 8, 2])
+        for layer in self.layers:
 
-outputs = brain.forward(inputs)
+            for i in range(len(layer.weights)):
 
-print(outputs)
+                for j in range(len(layer.weights[i])):
+
+                    if random.random() < mutation_rate:
+
+                        layer.weights[i][j] += random.uniform(
+                            -mutation_strength,
+                            mutation_strength
+                        )
+
+
+                if random.random() < mutation_rate:
+
+                    layer.biases[i] += random.uniform(
+                        -mutation_strength,
+                        mutation_strength
+                    )
+
+
+
