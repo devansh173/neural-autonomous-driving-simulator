@@ -9,7 +9,7 @@ from sensor import Sensor
 WIDTH = 1000
 HEIGHT = 800
 
-TRACK_NAME = "tough"
+TRACK_NAME = "three"
 
 TRACK_FOLDER = "tracks"
 
@@ -110,6 +110,33 @@ def run_simulation(
             None,
             30
         )
+
+        button_font = pygame.font.Font(
+            None,
+            24
+        )
+
+
+    # --------------------------------
+    # Stop & Save button (top right)
+    #
+    # Clicking this ends the current
+    # generation early -- as if every
+    # car had crashed -- so whatever
+    # progress exists right now gets
+    # ranked and saved normally. This
+    # is different from closing the
+    # window (the X button), which
+    # still discards the in-progress
+    # generation.
+    # --------------------------------
+
+    stop_button_rect = pygame.Rect(
+        WIDTH - 150,
+        10,
+        140,
+        40
+    )
 
 
     # --------------------------------
@@ -247,6 +274,28 @@ def run_simulation(
                     running = False
 
                     user_stopped = True
+
+
+                if event.type == pygame.MOUSEBUTTONDOWN:
+
+                    if stop_button_rect.collidepoint(
+                        event.pos
+                    ):
+
+                        print()
+                        print(
+                            "Stop & Save pressed - "
+                            "ending generation early "
+                            "and saving progress."
+                        )
+
+                        running = False
+
+                        # NOTE: user_stopped stays False
+                        # here on purpose, so this is
+                        # treated as a completed
+                        # generation below (ranked and
+                        # saved), not an abort.
 
 
         # --------------------------------
@@ -771,6 +820,33 @@ def run_simulation(
             )
 
 
+            # --------------------------------
+            # Stop & Save button
+            # --------------------------------
+
+            pygame.draw.rect(
+                screen,
+                (180, 40, 40),
+                stop_button_rect,
+                border_radius=6
+            )
+
+            stop_text = button_font.render(
+                "Stop & Save",
+                True,
+                (255, 255, 255)
+            )
+
+            stop_text_rect = stop_text.get_rect(
+                center=stop_button_rect.center
+            )
+
+            screen.blit(
+                stop_text,
+                stop_text_rect
+            )
+
+
             pygame.display.flip()
 
             clock.tick(60)
@@ -788,17 +864,12 @@ def run_simulation(
 
 
     # --------------------------------
-    # Find best car
+    # Find best car (just for the printout)
     # --------------------------------
 
     best_index = max_distances.index(
         max(max_distances)
     )
-
-
-    best_brain = population[
-        best_index
-    ]
 
 
     best_distance = max_distances[
@@ -851,8 +922,17 @@ def run_simulation(
     # generation.
     # --------------------------------
 
+    # --------------------------------
+    # CHANGE: return the WHOLE population
+    # plus everyone's distance/laps, not
+    # just the single best brain. train.py
+    # now picks multiple elites and does
+    # crossover between them, so it needs
+    # to rank the full population itself.
+    # --------------------------------
+
     return (
-        best_brain,
-        best_distance,
-        best_lap
+        population,
+        max_distances,
+        laps
     )

@@ -158,6 +158,55 @@ class Neural_Network:
                     )
 
 
+    def crossover(self, other):
+
+        # --------------------------------
+        # Uniform crossover: for every
+        # weight/bias, randomly take it
+        # from this brain (self) or the
+        # other parent. Produces a child
+        # that mixes traits from both,
+        # instead of just mutating one
+        # parent alone.
+        # --------------------------------
+
+        child = Neural_Network(
+            self.architecture
+        )
+
+        for i in range(len(self.layers)):
+
+            self_layer = self.layers[i]
+            other_layer = other.layers[i]
+            child_layer = child.layers[i]
+
+            for j in range(len(self_layer.weights)):
+
+                for k in range(len(self_layer.weights[j])):
+
+                    if random.random() < 0.5:
+
+                        child_layer.weights[j][k] = (
+                            self_layer.weights[j][k]
+                        )
+
+                    else:
+
+                        child_layer.weights[j][k] = (
+                            other_layer.weights[j][k]
+                        )
+
+                if random.random() < 0.5:
+
+                    child_layer.biases[j] = self_layer.biases[j]
+
+                else:
+
+                    child_layer.biases[j] = other_layer.biases[j]
+
+        return child
+
+
     # --------------------------------
     # FIX: Layer stores "biases" (plural),
     # not "bias". The old code read/wrote
