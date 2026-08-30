@@ -9,7 +9,7 @@ from sensor import Sensor
 WIDTH = 1000
 HEIGHT = 800
 
-TRACK_NAME = "log"
+TRACK_NAME = "tough"
 
 TRACK_FOLDER = "tracks"
 
