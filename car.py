@@ -23,9 +23,7 @@ class Car:
         if not self.is_alive:
             return
 
-        # -----------------
-        # THROTTLE
-        # -----------------
+        
 
         if throttle > 0:
             self.speed += self.acceleration * throttle
@@ -53,9 +51,7 @@ class Car:
                 if self.speed > 0:
                     self.speed = 0
 
-        # -----------------
-        # STEERING
-        # -----------------
+        
 
         speed_ratio = abs(self.speed) / self.max_speed
 
@@ -63,9 +59,7 @@ class Car:
 
         self.angle -= steering
 
-        # -----------------
-        # MOVEMENT
-        # -----------------
+       
 
         angle_rad = math.radians(self.angle)
 

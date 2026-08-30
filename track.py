@@ -6,7 +6,9 @@ import os
 pygame.init()
 
 
+# --------------------------------
 # Settings
+# --------------------------------
 
 WIDTH = 1000
 HEIGHT = 800
@@ -16,20 +18,66 @@ BACKGROUND_COLOR = (30, 120, 50)
 OUTER_COLOR = (255, 255, 255)
 INNER_COLOR = (255, 255, 255)
 
+START_COLOR = (255, 255, 0)
+
 POINT_DISTANCE = 5
 
 
-# Pygame
+# --------------------------------
+# Start Position
+# --------------------------------
 
-screen = pygame.display.set_mode((WIDTH, HEIGHT))
-pygame.display.set_caption("Track Editor")
+CAR_START_X = 100
+CAR_START_Y = 600
+
+CAR_START = (
+    CAR_START_X,
+    CAR_START_Y
+)
+
+
+# The track boundaries start
+# on either side of the car.
+
+OUTER_START = (
+    50,
+    600
+)
+
+INNER_START = (
+    150,
+    600
+)
+
+
+# Car starts facing upward
+
+CAR_START_ANGLE = 90
+
+
+# --------------------------------
+# Pygame
+# --------------------------------
+
+screen = pygame.display.set_mode(
+    (WIDTH, HEIGHT)
+)
+
+pygame.display.set_caption(
+    "Track Editor"
+)
 
 clock = pygame.time.Clock()
 
-font = pygame.font.Font(None, 30)
+font = pygame.font.Font(
+    None,
+    30
+)
 
 
+# --------------------------------
 # Folder
+# --------------------------------
 
 TRACK_FOLDER = "tracks"
 
@@ -39,59 +87,121 @@ os.makedirs(
 )
 
 
+# --------------------------------
 # Track Data
+# --------------------------------
 
 outer_points = []
+
 inner_points = []
 
+
+# --------------------------------
 # Mode
+#
 # 0 = outer
 # 1 = inner
+# 2 = finished
+# --------------------------------
+
 draw_mode = 0
 
 
+# --------------------------------
 # Track Name
+# --------------------------------
 
 track_name = ""
 
 typing_name = False
 
 
+# --------------------------------
+# Start New Track
+# --------------------------------
+
+def start_new_track():
+
+    outer_points.clear()
+
+    inner_points.clear()
+
+
+    # Pre-place the starting points
+
+    outer_points.append(
+        OUTER_START
+    )
+
+    inner_points.append(
+        INNER_START
+    )
+
+
+# --------------------------------
 # Add Point
+# --------------------------------
 
 def add_point(points, position):
 
     if len(points) == 0:
 
-        points.append(position)
+        points.append(
+            position
+        )
+
         return
+
 
     last_point = points[-1]
 
+
     distance = pygame.math.Vector2(
         position
-    ).distance_to(last_point)
+    ).distance_to(
+        last_point
+    )
+
 
     if distance >= POINT_DISTANCE:
 
-        points.append(position)
+        points.append(
+            position
+        )
 
 
+# --------------------------------
 # Save Track
+# --------------------------------
 
 def save_track():
 
     if track_name == "":
-        print("Enter a track name first.")
+
+        print(
+            "Enter a track name first."
+        )
+
         return
+
 
     if len(outer_points) < 2:
-        print("Outer track line is too short.")
+
+        print(
+            "Outer track line is too short."
+        )
+
         return
 
+
     if len(inner_points) < 2:
-        print("Inner track line is too short.")
+
+        print(
+            "Inner track line is too short."
+        )
+
         return
+
 
     track_data = {
 
@@ -99,15 +209,29 @@ def save_track():
 
         "outer": outer_points,
 
-        "inner": inner_points
+        "inner": inner_points,
+
+        "start": {
+
+            "x": CAR_START_X,
+
+            "y": CAR_START_Y,
+
+            "angle": CAR_START_ANGLE
+        }
     }
+
 
     filename = os.path.join(
         TRACK_FOLDER,
         track_name + ".json"
     )
 
-    with open(filename, "w") as file:
+
+    with open(
+        filename,
+        "w"
+    ) as file:
 
         json.dump(
             track_data,
@@ -115,12 +239,15 @@ def save_track():
             indent=4
         )
 
+
     print(
         f"Track saved: {filename}"
     )
 
 
-# Reset
+# --------------------------------
+# Reset Track
+# --------------------------------
 
 def reset_track():
 
@@ -128,44 +255,71 @@ def reset_track():
     global track_name
 
     outer_points.clear()
+
     inner_points.clear()
 
     draw_mode = 0
 
     track_name = ""
 
-    print("Track reset.")
+    start_new_track()
+
+    print(
+        "Track reset."
+    )
 
 
+# --------------------------------
+# Start
+# --------------------------------
+
+start_new_track()
+
+
+# --------------------------------
 # Main Loop
+# --------------------------------
 
 running = True
 
 
 while running:
 
+    # --------------------------------
     # Events
+    # --------------------------------
 
     for event in pygame.event.get():
 
+        # --------------------------------
         # Quit
+        # --------------------------------
 
         if event.type == pygame.QUIT:
 
             running = False
 
 
+        # --------------------------------
         # Keyboard
+        # --------------------------------
 
         if event.type == pygame.KEYDOWN:
 
-            # Enter
+            # --------------------------------
+            # ENTER
+            # --------------------------------
 
             if event.key == pygame.K_RETURN:
+
+                # Finish typing name
 
                 if typing_name:
 
                     typing_name = False
+
+
+                # Outer → Inner
 
                 elif draw_mode == 0:
 
@@ -176,6 +330,9 @@ while running:
                         print(
                             "Now draw the INNER line."
                         )
+
+
+                # Inner → Finished
 
                 elif draw_mode == 1:
 
@@ -188,7 +345,9 @@ while running:
                         )
 
 
+            # --------------------------------
             # Name
+            # --------------------------------
 
             if event.key == pygame.K_n:
 
@@ -197,7 +356,9 @@ while running:
                 track_name = ""
 
 
+            # --------------------------------
             # Save
+            # --------------------------------
 
             if event.key == pygame.K_s:
 
@@ -206,7 +367,9 @@ while running:
                     save_track()
 
 
+            # --------------------------------
             # Reset
+            # --------------------------------
 
             if event.key == pygame.K_r:
 
@@ -215,7 +378,9 @@ while running:
                     reset_track()
 
 
+            # --------------------------------
             # Text Input
+            # --------------------------------
 
             if typing_name:
 
@@ -223,12 +388,14 @@ while running:
 
                     track_name = track_name[:-1]
 
+
                 elif event.key not in (
                     pygame.K_RETURN,
                     pygame.K_ESCAPE
                 ):
 
                     character = event.unicode
+
 
                     if character.isalnum() or character in (
                         "_",
@@ -238,20 +405,22 @@ while running:
                         track_name += character
 
 
+        # --------------------------------
         # Mouse
+        # --------------------------------
 
         if not typing_name:
 
             if event.type == pygame.MOUSEMOTION:
-
-                # Left Button
 
                 if pygame.mouse.get_pressed()[0]:
 
                     position = pygame.mouse.get_pos()
 
 
-                    # Outer
+                    # --------------------------------
+                    # Draw Outer
+                    # --------------------------------
 
                     if draw_mode == 0:
 
@@ -261,7 +430,9 @@ while running:
                         )
 
 
-                    # Inner
+                    # --------------------------------
+                    # Draw Inner
+                    # --------------------------------
 
                     elif draw_mode == 1:
 
@@ -271,14 +442,18 @@ while running:
                         )
 
 
-    # Draw
+    # --------------------------------
+    # Draw Background
+    # --------------------------------
 
     screen.fill(
         BACKGROUND_COLOR
     )
 
 
-    # Outer Line
+    # --------------------------------
+    # Draw Outer Track
+    # --------------------------------
 
     if len(outer_points) >= 2:
 
@@ -291,7 +466,9 @@ while running:
         )
 
 
-    # Inner Line
+    # --------------------------------
+    # Draw Inner Track
+    # --------------------------------
 
     if len(inner_points) >= 2:
 
@@ -304,7 +481,34 @@ while running:
         )
 
 
+    # --------------------------------
+    # Draw Starting Gate
+    # --------------------------------
+
+    pygame.draw.line(
+        screen,
+        START_COLOR,
+        OUTER_START,
+        INNER_START,
+        3
+    )
+
+
+    # --------------------------------
+    # Draw Car Starting Position
+    # --------------------------------
+
+    pygame.draw.circle(
+        screen,
+        START_COLOR,
+        CAR_START,
+        8
+    )
+
+
+    # --------------------------------
     # UI
+    # --------------------------------
 
     if typing_name:
 
@@ -319,6 +523,7 @@ while running:
             (20, 20)
         )
 
+
         name_text = font.render(
             track_name + "_",
             True,
@@ -329,6 +534,7 @@ while running:
             name_text,
             (20, 55)
         )
+
 
         instruction = font.render(
             "ENTER = confirm",
@@ -355,16 +561,54 @@ while running:
             (20, 20)
         )
 
+
         instruction = font.render(
-            "Hold LEFT MOUSE and draw the OUTER line",
+            "Outer start: (50, 600)",
             True,
-            (255, 255, 255)
+            (255, 255, 0)
         )
 
         screen.blit(
             instruction,
             (20, 55)
         )
+
+
+        instruction = font.render(
+            "Car start: (100, 600)",
+            True,
+            (255, 255, 0)
+        )
+
+        screen.blit(
+            instruction,
+            (20, 90)
+        )
+
+
+        instruction = font.render(
+            "Inner start: (150, 600)",
+            True,
+            (255, 255, 0)
+        )
+
+        screen.blit(
+            instruction,
+            (20, 125)
+        )
+
+
+        instruction = font.render(
+            "Hold LEFT MOUSE and draw OUTER clockwise",
+            True,
+            (255, 255, 255)
+        )
+
+        screen.blit(
+            instruction,
+            (20, 160)
+        )
+
 
         instruction = font.render(
             "ENTER = Inner line",
@@ -374,7 +618,7 @@ while running:
 
         screen.blit(
             instruction,
-            (20, 90)
+            (20, 195)
         )
 
 
@@ -391,16 +635,42 @@ while running:
             (20, 20)
         )
 
+
         instruction = font.render(
-            "Hold LEFT MOUSE and draw the INNER line",
+            "Inner start: (150, 600)",
             True,
-            (255, 255, 255)
+            (255, 255, 0)
         )
 
         screen.blit(
             instruction,
             (20, 55)
         )
+
+
+        instruction = font.render(
+            "Car start: (100, 600)",
+            True,
+            (255, 255, 0)
+        )
+
+        screen.blit(
+            instruction,
+            (20, 90)
+        )
+
+
+        instruction = font.render(
+            "Hold LEFT MOUSE and draw INNER clockwise",
+            True,
+            (255, 255, 255)
+        )
+
+        screen.blit(
+            instruction,
+            (20, 125)
+        )
+
 
         instruction = font.render(
             "ENTER = Finish track",
@@ -410,7 +680,7 @@ while running:
 
         screen.blit(
             instruction,
-            (20, 90)
+            (20, 160)
         )
 
 
@@ -427,6 +697,7 @@ while running:
             (20, 20)
         )
 
+
         instruction = font.render(
             f"Track: {track_name}",
             True,
@@ -438,10 +709,11 @@ while running:
             (20, 55)
         )
 
+
         instruction = font.render(
-            "N = Rename   S = Save   R = Reset",
+            "Car start: (100, 600)",
             True,
-            (255, 255, 255)
+            (255, 255, 0)
         )
 
         screen.blit(
@@ -450,7 +722,33 @@ while running:
         )
 
 
+        instruction = font.render(
+            "Car angle: 90 degrees",
+            True,
+            (255, 255, 0)
+        )
+
+        screen.blit(
+            instruction,
+            (20, 125)
+        )
+
+
+        instruction = font.render(
+            "N = Rename   S = Save   R = Reset",
+            True,
+            (255, 255, 255)
+        )
+
+        screen.blit(
+            instruction,
+            (20, 160)
+        )
+
+
+    # --------------------------------
     # Display
+    # --------------------------------
 
     pygame.display.flip()
 
