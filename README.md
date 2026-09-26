@@ -104,8 +104,8 @@ After every generation, `training_checkpoint.json` stores the generation number,
 
 ```bash
 # 1. Clone the repository
-git clone https://github.com/devansh173/devansh173-neural-autonomous-driving-simulator.git
-cd devansh173-neural-autonomous-driving-simulator
+git clone https://github.com/devansh173/neural-autonomous-driving-simulator.git
+cd neural-autonomous-driving-simulator
 
 # 2. (Optional) create and activate a virtual environment
 python -m venv venv
@@ -188,7 +188,7 @@ Other settings:
 ## 📁 Project Structure
 
 ```
-devansh173-neural-autonomous-driving-simulator/
+neural-autonomous-driving-simulator/
 ├── main.py                    # Playback: loads the best trained brain and drives autonomously
 ├── train.py                   # Genetic algorithm: selection, crossover, adaptive mutation, checkpoints
 ├── simulation.py              # Runs one generation: physics loop, fitness & lap tracking, rendering, Stop & Save
